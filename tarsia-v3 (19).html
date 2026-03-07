@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tarsia Puzzle Generator</title>
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['$','$']] },
+    svg: { fontCache: 'global' },
+    startup: { typeset: false }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Spectral:wght@700&family=Inter:wght@400;500;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:     #f2ede6;
+    --panel:  #ffffff;
+    --dark:   #1c1c2e;
+    --accent: #5c3d8f;
+    --accent2:#b84c1e;
+    --mid:    #5a5870;
+    --light:  #e8e3da;
+    --border: #d0c9be;
+    --shadow: 0 4px 24px rgba(0,0,0,0.10);
+  }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--dark); min-height: 100vh; }
+  header {
+    background: var(--dark); color: white;
+    padding: 14px 28px; display: flex; align-items: center; gap: 14px;
+    border-bottom: 3px solid var(--accent);
+  }
+  header h1 { font-family: 'Spectral', serif; font-size: 1.5rem; font-weight: 700; }
+  .badge { background: var(--accent); color: #fff; font-size: 0.63rem; font-weight: 700;
+           padding: 3px 8px; border-radius: 3px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .app { display: grid; grid-template-columns: 360px 1fr; height: calc(100vh - 57px); }
+
+  /* SIDEBAR */
+  .sidebar { background: var(--panel); border-right: 1px solid var(--border);
+             display: flex; flex-direction: column; overflow: hidden; }
+  .sb-section { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .sb-section h3 { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.09em;
+                   text-transform: uppercase; color: var(--mid); margin-bottom: 10px; }
+  .shape-tabs { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .shape-tab  { flex: 1; padding: 8px 0; text-align: center; font-size: 0.8rem; font-weight: 600;
+                cursor: pointer; border: none; background: var(--bg); color: var(--mid);
+                font-family: 'Inter', sans-serif; transition: all 0.15s; }
+  .shape-tab.active { background: var(--dark); color: white; }
+  .shape-tab:not(.active):hover { background: var(--light); }
+  .field { margin-bottom: 8px; }
+  .field label { display: block; font-size: 0.76rem; font-weight: 600; color: var(--mid); margin-bottom: 3px; }
+  .field input { width: 100%; border: 1px solid var(--border); border-radius: 5px;
+                 padding: 6px 9px; font-size: 0.8rem; font-family: 'Inter', sans-serif;
+                 background: var(--bg); color: var(--dark); transition: border-color 0.15s; }
+  .field input:focus { outline: none; border-color: var(--accent); }
+  .toggle-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .toggle-row label { font-size: 0.8rem; font-weight: 500; cursor: pointer; }
+  .toggle-row input[type=checkbox] { accent-color: var(--accent); }
+  .pairs-header { padding: 8px 16px 2px; display: grid; grid-template-columns: 22px 1fr 1fr;
+                  gap: 6px; border-bottom: 1px solid var(--border); }
+  .pairs-header span { font-size: 0.67rem; font-weight: 700; letter-spacing: 0.08em;
+                       text-transform: uppercase; color: var(--mid); text-align: center; }
+  .pairs { flex: 1; overflow-y: auto; padding: 6px 12px 10px; display: flex; flex-direction: column; gap: 5px; }
+  .pair-row { display: grid; grid-template-columns: 22px 1fr 1fr; gap: 5px; align-items: center; }
+  .pair-label { font-size: 0.72rem; font-weight: 700; color: var(--accent); text-align: center; }
+  .pair-row input { border: 1px solid var(--border); border-radius: 5px; padding: 6px 8px;
+                    font-size: 0.79rem; font-family: 'Inter', sans-serif;
+                    background: var(--bg); color: var(--dark); width: 100%; transition: border-color 0.15s; }
+  .pair-row input:focus { outline: none; border-color: var(--accent); }
+  .pair-row input::placeholder { color: #bbb; font-style: italic; }
+  .sb-foot { padding: 12px 14px; border-top: 1px solid var(--border);
+             display: flex; flex-direction: column; gap: 8px; }
+  .hint { font-size: 0.72rem; color: var(--mid); line-height: 1.5;
+          background: var(--light); border-radius: 5px; padding: 7px 10px; }
+  .hint code { background: white; border-radius: 3px; padding: 1px 4px;
+               font-size: 0.78rem; color: var(--accent2); }
+  .btn { padding: 9px 14px; border-radius: 6px; border: none; cursor: pointer;
+         font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.83rem;
+         transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .btn-dark   { background: var(--dark); color: #fff; }
+  .btn-dark:hover { background: #2e2e4a; }
+  .btn-purple { background: var(--accent); color: #fff; }
+  .btn-purple:hover { filter: brightness(1.1); }
+  .btn-ghost  { background: var(--light); color: var(--dark); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); }
+  .btn-row { display: flex; gap: 7px; }
+
+  /* MAIN */
+  .main { overflow: auto; padding: 24px 28px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .view-controls { display: flex; gap: 8px; }
+  .view-btn { padding: 7px 16px; border-radius: 20px; border: 1.5px solid var(--border);
+              background: white; font-family: 'Inter', sans-serif; font-size: 0.8rem;
+              font-weight: 600; cursor: pointer; color: var(--mid); transition: all 0.15s; }
+  .view-btn.active { background: var(--dark); color: white; border-color: var(--dark); }
+  #puzzle-wrap { background: white; border-radius: 12px; box-shadow: var(--shadow); padding: 20px; }
+  #mjax-stage { position: absolute; visibility: hidden; pointer-events: none; top: -9999px; left: -9999px; }
+
+  /* PRINT */
+  @media print {
+    body { background: white; margin: 0; }
+    header, .sidebar, .view-controls { display: none !important; }
+    .app  { display: block; }
+    .main { padding: 0; overflow: visible; display: block; }
+    #puzzle-wrap { box-shadow: none; border-radius: 0; padding: 0; margin: 0; }
+    * { overflow: visible !important; }
+    #puzzle-svg { width: 100% !important; height: auto !important; max-width: 190mm; display: block; margin: 0 auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Tarsia Puzzle Generator</h1>
+  <span class="badge" id="header-badge">Hexagonal</span>
+</header>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="sb-section">
+      <h3>Shape</h3>
+      <div class="shape-tabs">
+        <button class="shape-tab active" id="tab-hex" onclick="setShape('hex')">⬡ Hexagon (6)</button>
+        <button class="shape-tab"        id="tab-tri" onclick="setShape('tri')">△ Triangle (9)</button>
+      </div>
+    </div>
+    <div class="sb-section">
+      <h3>Settings</h3>
+      <div class="field"><label>Title</label>
+        <input id="cfg-title" value="Indices &amp; Logarithms" oninput="markDirty()"></div>
+      <div class="field"><label>Subtitle</label>
+        <input id="cfg-sub" value="NCEA Level 2" oninput="markDirty()"></div>
+      <div class="toggle-row">
+        <input type="checkbox" id="cfg-randomqa" checked onchange="markDirty()">
+        <label for="cfg-randomqa">Randomise Q/A sides</label>
+      </div>
+    </div>
+    <div class="pairs-header">
+      <span></span><span>Question</span><span>Answer</span>
+    </div>
+    <div class="pairs" id="pairs-list"></div>
+    <div class="sb-foot">
+      <div class="hint">Use <code>$...$</code> for maths — e.g. <code>$x^2+3$</code>, <code>$\log_2 8$</code></div>
+      <button class="btn btn-dark" onclick="generatePuzzle()">Generate ▶</button>
+      <div class="btn-row">
+        <button class="btn btn-purple" style="flex:1" onclick="printSheet()">🖨 Print Student</button>
+        <button class="btn btn-ghost"  style="flex:1" onclick="printTeacher()">🗝 Print Teacher</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="view-controls">
+      <button class="view-btn active" id="btn-student" onclick="switchView('student')">Student (Shuffled)</button>
+      <button class="view-btn"        id="btn-teacher" onclick="switchView('teacher')">Teacher (Solved)</button>
+    </div>
+    <div id="puzzle-wrap">
+      <svg id="puzzle-svg" width="740" height="820">
+        <text x="370" y="410" text-anchor="middle" fill="#ccc" font-size="15"
+              font-family="Inter,sans-serif">Click Generate to build the puzzle</text>
+      </svg>
+    </div>
+  </main>
+</div>
+<div id="mjax-stage"></div>
+
+<script>
+// ─── Default pairs ────────────────────────────────────────────────────────
+const DEFAULT_HEX = [
+  { q:'$2^4$',             a:'$16$'           },
+  { q:'$\\log_2 32$',      a:'$5$'            },
+  { q:'$3^{-2}$',          a:'$\\frac{1}{9}$' },
+  { q:'$\\sqrt{144}$',     a:'$12$'           },
+  { q:'$\\log_{10} 1000$', a:'$3$'            },
+  { q:'$5^0$',             a:'$1$'            },
+];
+const DEFAULT_TRI = [
+  { q:'$2^4$',             a:'$16$'            },
+  { q:'$\\log_2 32$',      a:'$5$'             },
+  { q:'$3^{-2}$',          a:'$\\frac{1}{9}$'  },
+  { q:'$\\sqrt{144}$',     a:'$12$'            },
+  { q:'$\\log_{10} 1000$', a:'$3$'             },
+  { q:'$5^0$',             a:'$1$'             },
+  { q:'$4^{1/2}$',         a:'$2$'             },
+  { q:'$\\log_3 81$',      a:'$4$'             },
+  { q:'$2^{-3}$',          a:'$\\frac{1}{8}$'  },
+];
+
+// ─── State ────────────────────────────────────────────────────────────────
+let currentShape = 'hex';
+let pairs        = DEFAULT_HEX.map(p=>({...p}));
+let dirty        = true;
+let currentView  = 'student';
+let lastQAFlips  = null;
+let lastShuffle  = null;
+let lastLabelPerm = null;
+
+function markDirty() { dirty = true; }
+function pairCount() { return currentShape === 'hex' ? 6 : 9; }
+
+// ─── Shape selector ───────────────────────────────────────────────────────
+function setShape(shape) {
+  if (shape === currentShape) return;
+  currentShape = shape;
+  document.getElementById('tab-hex').classList.toggle('active', shape==='hex');
+  document.getElementById('tab-tri').classList.toggle('active', shape==='tri');
+  document.getElementById('header-badge').textContent = shape==='hex' ? 'Hexagonal' : 'Triangle';
+  pairs = (shape==='hex' ? DEFAULT_HEX : DEFAULT_TRI).map(p=>({...p}));
+  dirty = true; lastQAFlips = null; lastShuffle = null; lastLabelPerm = null;
+  renderSidebar();
+  resetSVG();
+}
+
+function resetSVG() {
+  const svg = document.getElementById('puzzle-svg');
+  svg.innerHTML = `<text x="370" y="410" text-anchor="middle" fill="#ccc" font-size="15"
+    font-family="Inter,sans-serif">Click Generate to build the puzzle</text>`;
+}
+
+// ─── Sidebar ──────────────────────────────────────────────────────────────
+function renderSidebar() {
+  const list = document.getElementById('pairs-list');
+  list.innerHTML = '';
+  for (let i = 0; i < pairCount(); i++) {
+    const row = document.createElement('div');
+    row.className = 'pair-row';
+    row.innerHTML = `
+      <span class="pair-label">P${i+1}</span>
+      <input value="${esc(pairs[i].q)}" placeholder="$x^2$"  oninput="pairs[${i}].q=this.value;markDirty()">
+      <input value="${esc(pairs[i].a)}" placeholder="answer" oninput="pairs[${i}].a=this.value;markDirty()">`;
+    list.appendChild(row);
+  }
+}
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+// ─── Geometry constants ───────────────────────────────────────────────────
+const NS  = 'http://www.w3.org/2000/svg';
+// S = side length of each small triangle
+// h = height of equilateral triangle with side S  = S * sqrt(3)/2
+
+// ─── Edge pairing tables ──────────────────────────────────────────────────
+// Each entry: [triA, sideA, triB, sideB] — pair index = position in array
+// Triangles are 0-indexed (A=0, B=1, ... F=5 for hex; A=0..I=8 for tri)
+// Sides: 1,2,3 as per convention
+
+// HEXAGON (6 triangles, 6 pairs):
+// Row 0: [A▲=0][B▽=1][C▲=2]
+// Row 1: [D▽=3][E▲=4][F▽=5]
+// Internal edges: A3|B1, B3|C2, A1|D2, D3|E2, E3|F1, F2|C1
+const HEX_PAIRS = [
+  [0,3, 1,1],  // P1: A3 | B1
+  [1,3, 2,2],  // P2: B3 | C2
+  [0,1, 3,2],  // P3: A1 | D2
+  [3,3, 4,2],  // P4: D3 | E2
+  [4,3, 5,1],  // P5: E3 | F1
+  [5,2, 2,1],  // P6: F2 | C1
+];
+// Blank sides: A2, B2, C3, D1, E1, F3
+const HEX_BLANKS = [
+  [0,2],[1,2],[2,3],[3,1],[4,1],[5,3]
+];
+// Triangle types: true=▲, false=▽
+const HEX_TYPES = [true, false, true, false, true, false]; // A▲ B▽ C▲ D▽ E▲ F▽
+
+// LARGE TRIANGLE (9 triangles, 9 pairs):
+// Row 0:         [A▲=0]
+// Row 1:      [B▲=1][C▽=2][D▲=3]
+// Row 2:   [E▲=4][F▽=5][G▲=6][H▽=7][I▲=8]
+// Internal edges: A1|C2, B3|C1, C3|D2, B1|F2, D1|H2, E3|F1, F3|G2, G3|H1, H3|I2
+const TRI_PAIRS = [
+  [0,1, 2,2],  // P1: A1 | C2
+  [1,3, 2,1],  // P2: B3 | C1
+  [2,3, 3,2],  // P3: C3 | D2
+  [1,1, 5,2],  // P4: B1 | F2
+  [3,1, 7,2],  // P5: D1 | H2
+  [4,3, 5,1],  // P6: E3 | F1
+  [5,3, 6,2],  // P7: F3 | G2
+  [6,3, 7,1],  // P8: G3 | H1
+  [7,3, 8,2],  // P9: H3 | I2
+];
+// Blank sides: A2, A3, B2, D3, E1, E2, G1, I1, I3
+const TRI_BLANKS = [
+  [0,2],[0,3],[1,2],[3,3],[4,1],[4,2],[6,1],[8,1],[8,3]
+];
+const TRI_TYPES = [true, true, false, true, true, false, true, false, true];
+// A▲ B▲ C▽ D▲ E▲ F▽ G▲ H▽ I▲
+
+// ─── Build side text assignments ──────────────────────────────────────────
+// Returns array of {s1, s2, s3} for each triangle (null = blank)
+function buildSideTexts(pairsIn, qaFlips) {
+  const pairs_table = currentShape === 'hex' ? HEX_PAIRS : TRI_PAIRS;
+  const n = pairCount();
+  // sides[tri][side] = text
+  const sides = Array.from({length: n}, () => ({s1:null, s2:null, s3:null}));
+
+  for (let p = 0; p < n; p++) {
+    const [tA, sA, tB, sB] = pairs_table[p];
+    const flip = qaFlips[p];
+    const q = pairsIn[p].q;
+    const a = pairsIn[p].a;
+    sides[tA][`s${sA}`] = flip ? a : q;
+    sides[tB][`s${sB}`] = flip ? q : a;
+  }
+  return sides;
+}
+
+// ─── MathJax rendering ────────────────────────────────────────────────────
+const mjaxCache = {};
+async function renderMath(tex) {
+  if (!tex) return {type:'text', content:'', w:0, h:0};
+  if (mjaxCache[tex]) return mjaxCache[tex];
+  const stage = document.getElementById('mjax-stage');
+  const div = document.createElement('div');
+  div.style.fontSize = '16px';
+  div.textContent = tex;
+  stage.appendChild(div);
+  await MathJax.typesetPromise([div]);
+  const svgEl = div.querySelector('svg');
+  let result;
+  if (svgEl) {
+    const vb = (svgEl.getAttribute('viewBox')||'0 0 100 20').split(' ').map(Number);
+    result = {type:'svg', content:new XMLSerializer().serializeToString(svgEl), w:vb[2], h:vb[3]};
+  } else {
+    result = {type:'text', content:tex, w:tex.length*9, h:16};
+  }
+  stage.removeChild(div);
+  mjaxCache[tex] = result;
+  return result;
+}
+
+// ─── Place label on an edge ───────────────────────────────────────────────
+// tx,ty = position; rotDeg = text angle; dynScale = size scaling factor
+function placeLabel(svgEl, rendered, tx, ty, rotDeg, dynScale) {
+  if (!rendered || rendered.w === 0) return;
+  const g = document.createElementNS(NS, 'g');
+  g.setAttribute('transform', `translate(${tx},${ty}) rotate(${rotDeg})`);
+  if (rendered.type === 'svg') {
+    const sc = (18 * dynScale) / rendered.h;
+    const sw = rendered.w * sc, sh = rendered.h * sc;
+    const fo = document.createElementNS(NS, 'foreignObject');
+    fo.setAttribute('x', -sw/2); fo.setAttribute('y', -sh);
+    fo.setAttribute('width', sw); fo.setAttribute('height', sh);
+    fo.setAttribute('overflow', 'visible');
+    const div = document.createElement('div');
+    div.style.cssText = `width:${sw}px;height:${sh}px;display:flex;align-items:flex-end;justify-content:center;`;
+    div.innerHTML = rendered.content;
+    const inner = div.querySelector('svg');
+    if (inner) { inner.style.width = sw+'px'; inner.style.height = sh+'px'; }
+    fo.appendChild(div);
+    g.appendChild(fo);
+  } else {
+    const t = document.createElementNS(NS, 'text');
+    t.setAttribute('x', 0); t.setAttribute('y', 0);
+    t.setAttribute('text-anchor', 'middle');
+    t.setAttribute('font-size', Math.round(13 * dynScale));
+    t.setAttribute('font-family', 'Inter, sans-serif');
+    t.setAttribute('fill', '#1c1c2e');
+    t.textContent = rendered.content;
+    g.appendChild(t);
+  }
+  svgEl.appendChild(g);
+}
+
+// ─── Draw one triangle ────────────────────────────────────────────────────
+// isUp: true=▲, false=▽
+// bx,by: bottom-left corner of the bounding box cell
+// S: side length
+// sideTexts: {s1,s2,s3}
+// label: triangle letter
+// dynScale: text size scale
+async function drawTriangle(svg, isUp, bx, by, S, sideTexts, label, dynScale) {
+  const h = S * Math.sqrt(3) / 2;  // triangle height
+  const INSET = 12 * dynScale;      // how far from edge midpoint toward centroid
+
+  // Vertices
+  let verts;
+  if (isUp) {
+    // ▲: bottom-left, bottom-right, top
+    verts = [
+      [bx,      by],       // v0 = bottom-left
+      [bx + S,  by],       // v1 = bottom-right
+      [bx + S/2, by - h],  // v2 = top
+    ];
+  } else {
+    // ▽: top-left, top-right, bottom
+    verts = [
+      [bx,      by - h],   // v0 = top-left
+      [bx + S,  by - h],   // v1 = top-right
+      [bx + S/2, by],      // v2 = bottom
+    ];
+  }
+
+  const cx = (verts[0][0]+verts[1][0]+verts[2][0])/3;
+  const cy = (verts[0][1]+verts[1][1]+verts[2][1])/3;
+
+  // Draw polygon
+  const poly = document.createElementNS(NS, 'polygon');
+  poly.setAttribute('points', verts.map(v=>v.join(',')).join(' '));
+  poly.setAttribute('fill', 'white');
+  poly.setAttribute('stroke', '#1c1c2e');
+  poly.setAttribute('stroke-width', '1.5');
+  svg.appendChild(poly);
+
+  // Triangle label at centroid
+  const lbl = document.createElementNS(NS, 'text');
+  lbl.setAttribute('x', cx); lbl.setAttribute('y', cy);
+  lbl.setAttribute('text-anchor', 'middle'); lbl.setAttribute('dominant-baseline', 'middle');
+  lbl.setAttribute('font-size', Math.round(13 * dynScale));
+  lbl.setAttribute('font-weight', '600');
+  lbl.setAttribute('font-family', 'Inter, sans-serif');
+  lbl.setAttribute('fill', '#ccc');
+  lbl.textContent = label;
+  svg.appendChild(lbl);
+
+  // Side text positions and angles
+  // For ▲ (isUp=true):
+  //   Side 1 = base:  midpoint between v0 and v1, angle=0° (horizontal, reading left→right)
+  //   Side 2 = left:  midpoint between v0 and v2, angle=-60° (runs up-left to up-right from bottom)
+  //   Side 3 = right: midpoint between v2 and v1, angle=60°
+  // For ▽ (isUp=false):
+  //   Side 1 = left:  midpoint between v2 and v0, angle=-60°
+  //   Side 2 = top:   midpoint between v0 and v1, angle=0°
+  //   Side 3 = right: midpoint between v1 and v2, angle=60°
+  // Text baseline faces INWARD (toward centroid), top of letters toward centroid
+
+  let sides;
+  if (isUp) {
+    // ▲: s1=base: 0°, s2=left: 120°, s3=right: -120°
+    sides = {
+      s1: { mid: [(verts[0][0]+verts[1][0])/2, (verts[0][1]+verts[1][1])/2], angle:    0 },
+      s2: { mid: [(verts[0][0]+verts[2][0])/2, (verts[0][1]+verts[2][1])/2], angle:  120 },
+      s3: { mid: [(verts[2][0]+verts[1][0])/2, (verts[2][1]+verts[1][1])/2], angle: -120 },
+    };
+  } else {
+    // ▽: s1=left: 60°, s2=top: 180°, s3=right: -60°
+    sides = {
+      s1: { mid: [(verts[2][0]+verts[0][0])/2, (verts[2][1]+verts[0][1])/2], angle:   60 },
+      s2: { mid: [(verts[0][0]+verts[1][0])/2, (verts[0][1]+verts[1][1])/2], angle:  180 },
+      s3: { mid: [(verts[1][0]+verts[2][0])/2, (verts[1][1]+verts[2][1])/2], angle:  -60 },
+    };
+  }
+
+  // For each side with text, inset from edge midpoint toward centroid then place label
+  for (const [key, {mid, angle}] of Object.entries(sides)) {
+    const text = sideTexts[key];
+    if (!text) continue;
+    const dx = cx - mid[0], dy = cy - mid[1];
+    const len = Math.sqrt(dx*dx + dy*dy);
+    const tx = mid[0] + (dx/len)*INSET;
+    const ty = mid[1] + (dy/len)*INSET;
+    placeLabel(svg, await renderMath(text), tx, ty, angle, dynScale);
+  }
+}
+
+// ─── Shuffle ──────────────────────────────────────────────────────────────
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i=a.length-1; i>0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+// ─── Layout: positions for each triangle in the solved shape ──────────────
+// Returns array of {isUp, bx, by} for each triangle index
+// bx,by = bottom-left of bounding box cell, at the "base line" of the row
+function getSolvedLayout(S, cx, cy) {
+  const h = S * Math.sqrt(3) / 2;
+  const GAP = 4; // small gap between triangles for solved view
+
+  if (currentShape === 'hex') {
+    // Row 0: [A▲=0][B▽=1][C▲=2]  — 3 triangles wide
+    // Row 1: [D▽=3][E▲=4][F▽=5]
+    // Total width = 3*S, total height = 2*h
+    // Centre the whole thing at cx,cy
+    const totalW = 2 * S;   // leftmost bx=x0, rightmost bx=x0+S width S → x0+2S
+    const totalH = 2 * h;
+    const x0 = cx - totalW/2;
+    const y0 = cy - totalH/2 + h; // y0 = baseline of row 0
+
+    return [
+      {isUp:true,  bx: x0,         by: y0},      // A▲
+      {isUp:false, bx: x0+S/2,     by: y0},      // B▽
+      {isUp:true,  bx: x0+S,       by: y0},      // C▲
+      {isUp:false, bx: x0,         by: y0+h},    // D▽
+      {isUp:true,  bx: x0+S/2,     by: y0+h},    // E▲
+      {isUp:false, bx: x0+S,       by: y0+h},    // F▽
+    ];
+  } else {
+    // Large triangle:
+    // Row 0: [A▲]          — 1 wide, centred
+    // Row 1: [B▲][C▽][D▲] — 3 wide
+    // Row 2: [E▲][F▽][G▲][H▽][I▲] — 5 wide
+    // Total width = 5*S, total height = 3*h
+    const totalW = 3 * S;   // E▲ at x0, I▲ at x0+2S width S → x0+3S
+    const totalH = 3 * h;
+    const x0 = cx - totalW/2;
+    const y0 = cy - totalH/2 + h; // baseline of row 0
+
+    // Row 0: A▲ centred → offset = 2 cells = 2*(S/2) = S from left of row 2
+    // Row 1: B▲ C▽ D▲ → offsets 1,2,3 cells from row2 left = S/2,S,3S/2
+    // Row 2: E▲ F▽ G▲ H▽ I▲ → offsets 0,1,2,3,4 cells
+    return [
+      {isUp:true,  bx: x0+2*(S/2),   by: y0},      // A▲
+      {isUp:true,  bx: x0+1*(S/2),   by: y0+h},    // B▲
+      {isUp:false, bx: x0+2*(S/2),   by: y0+h},    // C▽
+      {isUp:true,  bx: x0+3*(S/2),   by: y0+h},    // D▲
+      {isUp:true,  bx: x0+0*(S/2),   by: y0+2*h},  // E▲
+      {isUp:false, bx: x0+1*(S/2),   by: y0+2*h},  // F▽
+      {isUp:true,  bx: x0+2*(S/2),   by: y0+2*h},  // G▲
+      {isUp:false, bx: x0+3*(S/2),   by: y0+2*h},  // H▽
+      {isUp:true,  bx: x0+4*(S/2),   by: y0+2*h},  // I▲
+    ];
+  }
+}
+
+// ─── Layout: student grid (shuffled rows) ────────────────────────────────
+// Triangles laid out in rows of COLS, alternating ▲▽ using S/2 cell width.
+// Vertical gap between rows is a small padding.
+function getStudentLayout(S, svgW, topY) {
+  const h    = S * Math.sqrt(3) / 2;
+  const n    = pairCount();
+  const COLS = currentShape === 'hex' ? 3 : 5;
+  const MV    = 13;   // vertical margin
+  const HGAP  = 1;    // small visual gap between triangles horizontally
+  // Horizontally, each cell steps by S/2 (bounding boxes overlap by S/2)
+  // plus a tiny gap so triangles don't actually touch
+  const cellStep = S * 0.75 + HGAP;
+  // Total row width: first tri is S wide, then each subsequent adds cellStep
+  const rowW  = S + (COLS - 1) * cellStep;
+  const startX = (svgW - rowW) / 2;
+  const cellH = h + 2 * MV;
+  const layout = [];
+  for (let i = 0; i < n; i++) {
+    const col  = i % COLS;
+    const row  = Math.floor(i / COLS);
+    const isUp = (i % 2 === 0);
+    const bx   = startX + col * cellStep;
+    const by   = topY + row * cellH + cellH - MV;
+    layout.push({isUp, bx, by});
+  }
+  return layout;
+}
+
+// ─── Main render ──────────────────────────────────────────────────────────
+async function renderPuzzle(mode) {
+  const svgEl = document.getElementById('puzzle-svg');
+  const n = pairCount();
+
+  svgEl.innerHTML = `<text x="370" y="410" text-anchor="middle" fill="#bbb"
+    font-size="13" font-family="Inter,sans-serif">Rendering…</text>`;
+
+  const valid = pairs.filter(p=>(p.q||'').trim()&&(p.a||'').trim());
+  if (valid.length !== n) {
+    svgEl.innerHTML = `<text x="370" y="410" text-anchor="middle" fill="#c00"
+      font-size="13" font-family="Inter,sans-serif">Please enter exactly ${n} complete pairs</text>`;
+    return;
+  }
+
+  const randomQA = document.getElementById('cfg-randomqa').checked;
+  if (dirty || !lastQAFlips) {
+    lastQAFlips   = valid.map(() => randomQA ? Math.random()<0.5 : false);
+    lastShuffle   = shuffle([...Array(n).keys()]);
+    lastLabelPerm = shuffle([...'ABCDEFGHI'].slice(0, n));
+    dirty = false;
+  }
+
+  const sideTexts = buildSideTexts(valid, lastQAFlips);
+  const LABELS    = lastLabelPerm;
+  const svgW = 740, svgH = 840;
+  svgEl.setAttribute('width', svgW); svgEl.setAttribute('height', svgH);
+  svgEl.innerHTML = '';
+
+  // Title
+  const title = document.getElementById('cfg-title').value || 'Tarsia';
+  const sub   = document.getElementById('cfg-sub').value || '';
+  const mkTxt = (x,y,txt,font,size,weight,fill) => {
+    const el = document.createElementNS(NS,'text');
+    el.setAttribute('x',x); el.setAttribute('y',y); el.setAttribute('text-anchor','middle');
+    el.setAttribute('font-family',font); el.setAttribute('font-size',size);
+    el.setAttribute('font-weight',weight); el.setAttribute('fill',fill);
+    el.textContent = txt; svgEl.appendChild(el);
+  };
+  mkTxt(svgW/2, 36, title, 'Spectral,serif', 20, '700', '#1c1c2e');
+  if (sub) mkTxt(svgW/2, 56, sub+(mode==='teacher'?'  —  TEACHER COPY':''), 'Inter,sans-serif', 12, '400', '#888');
+  if (mode==='student') mkTxt(svgW/2, 72, 'Cut out the triangles and arrange them so each question touches its matching answer.', 'Inter,sans-serif', 11, '400', '#aaa');
+
+  if (mode === 'teacher') {
+    // ── Solved shape, centred ────────────────────────────────────────────
+    const S  = currentShape === 'hex' ? 215 : 175;
+    const cx = svgW/2, cy = currentShape === 'hex' ? svgH/2 + 30 : svgH/2 + 15;
+    const layout = getSolvedLayout(S, cx, cy);
+    const types  = currentShape === 'hex' ? HEX_TYPES : TRI_TYPES;
+    for (let i = 0; i < n; i++) {
+      const {isUp, bx, by} = layout[i];
+      await drawTriangle(svgEl, isUp, bx, by, S, sideTexts[i], LABELS[i], 1.0);
+    }
+
+  } else {
+    // ── Student sheet: shuffled grid ─────────────────────────────────────
+    const S      = currentShape === 'hex' ? 215 : 165;
+    const layout = getStudentLayout(S, svgW, 80);
+    for (let pos = 0; pos < n; pos++) {
+      const triIdx = lastShuffle[pos];
+      const {isUp, bx, by} = layout[pos];
+      await drawTriangle(svgEl, isUp, bx, by, S, sideTexts[triIdx], LABELS[triIdx], 1.0);
+    }
+  }
+}
+
+async function generatePuzzle() { dirty=true; lastQAFlips=null; await renderPuzzle(currentView); }
+async function switchView(mode) {
+  currentView = mode;
+  document.getElementById('btn-student').classList.toggle('active', mode==='student');
+  document.getElementById('btn-teacher').classList.toggle('active', mode==='teacher');
+  await renderPuzzle(mode);
+}
+async function printSheet()   { await renderPuzzle('student'); setTimeout(()=>window.print(), 300); }
+async function printTeacher() { await renderPuzzle('teacher'); setTimeout(()=>window.print(), 300); }
+
+renderSidebar();
+</script>
+</body>
+</html>
