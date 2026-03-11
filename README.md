@@ -2,7 +2,7 @@
 
 A free, browser-based tool for creating printable Tarsia matching puzzles for mathematics classrooms. No installation, no account, no cost.
 
-**[Try it live →](https://ironstamp.github.io/tarsia-puzzle-generator)**
+**[Try it live →](https://ironstamp.github.io/tarsia-generator)**
 
 ---
 
